@@ -326,7 +326,7 @@ bool KnowledgeGraph::check_true(Triplet triplet)
     else return false;
 }
 
-void KnowledgeGraph::rule_search(int r, int e, int goal, int *path, int depth, int max_depth, std::set<Rule> &rule_set)
+void KnowledgeGraph::rule_search(int r, int e, int goal, int *path, int depth, int max_depth, std::set<Rule> &rule_set, Triplet removed_triplet)
 {
     if (e == goal)
     {
@@ -352,12 +352,13 @@ void KnowledgeGraph::rule_search(int r, int e, int goal, int *path, int depth, i
     {
         cur_r = e2rn[e][k].first;
         cur_n = e2rn[e][k].second;
+        if (e == removed_triplet.h && cur_r == removed_triplet.r && cur_n == removed_triplet.t) continue;
         path[depth] = cur_r;
-        rule_search(r, cur_n, goal, path, depth+1, max_depth, rule_set);
+        rule_search(r, cur_n, goal, path, depth+1, max_depth, rule_set, removed_triplet);
     }
 }
 
-void KnowledgeGraph::rule_destination(int e, Rule rule, std::vector<int> &dests)
+void KnowledgeGraph::rule_destination(int e, Rule rule, std::vector<int> &dests, Triplet removed_triplet)
 {
     std::queue< std::pair<int, int> > queue;
     queue.push(std::make_pair(e, 0));
@@ -377,8 +378,8 @@ void KnowledgeGraph::rule_destination(int e, Rule rule, std::vector<int> &dests)
         for (int k = 0; k != int(e2rn[current_e].size()); k++)
         {
             if (e2rn[current_e][k].first != current_r) continue;
-            
             next_e = e2rn[current_e][k].second;
+            if (current_e == removed_triplet.h && current_r == removed_triplet.r && next_e == removed_triplet.t) continue;
             queue.push(std::make_pair(next_e, current_d + 1));
         }
     }
@@ -472,7 +473,7 @@ void RuleMiner::search_thread(int thread)
         t = p_kg->train_triplets[T].t;
         
         rule_set.clear();
-        p_kg->rule_search(r, h, t, path, 0, max_length, rule_set);
+        p_kg->rule_search(r, h, t, path, 0, max_length, rule_set, p_kg->train_triplets[T]);
     
         for (iter = rule_set.begin(); iter != rule_set.end(); iter++)
         {
@@ -700,7 +701,7 @@ void ReasoningPredictor::learn_thread(int thread)
         for (index = 0; index != int(rel2rules[r].size()); index++)
         {
             dests.clear();
-            p_kg->rule_destination(h, rel2rules[r][index], dests);
+            p_kg->rule_destination(h, rel2rules[r][index], dests, p_kg->train_triplets[T]);
             
             for (int i = 0; i != int(dests.size()); i++)
             {
@@ -806,7 +807,7 @@ void ReasoningPredictor::H_score_thread(int thread)
         for (index = 0; index != int(rel2rules[r].size()); index++)
         {
             dests.clear();
-            p_kg->rule_destination(h, rel2rules[r][index], dests);
+            p_kg->rule_destination(h, rel2rules[r][index], dests, p_kg->train_triplets[T]);
             
             for (int i = 0; i != int(dests.size()); i++)
             {
@@ -940,7 +941,7 @@ void ReasoningPredictor::evaluate_thread(int thread)
         for (index = 0; index != int(rel2rules[r].size()); index++)
         {
             dests.clear();
-            p_kg->rule_destination(h, rel2rules[r][index], dests);
+            p_kg->rule_destination(h, rel2rules[r][index], dests, (*p_triplets)[T]);
             
             for (int i = 0; i != int(dests.size()); i++)
             {

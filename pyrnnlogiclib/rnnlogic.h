@@ -100,8 +100,8 @@ public:
     void read_data(char *data_path);
     bool check_observed(Triplet triplet);
     bool check_true(Triplet triplet);
-    void rule_search(int r, int e, int goal, int *path, int depth, int max_depth, std::set<Rule> &rule_set);
-    void rule_destination(int e, Rule rule, std::vector<int> &dests);
+    void rule_search(int r, int e, int goal, int *path, int depth, int max_depth, std::set<Rule> &rule_set, Triplet removed_triplet);
+    void rule_destination(int e, Rule rule, std::vector<int> &dests, Triplet removed_triplet);
 };
 
 class RuleMiner

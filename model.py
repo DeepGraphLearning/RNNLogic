@@ -83,7 +83,7 @@ class ReasoningPredictor:
 		pyrnnlogic.compute_H_score(self.pointer, top_k, H_temperature, prior_weight, portion, num_threads)
 
 class RuleGenerator(torch.nn.Module):
-	def __init__(self, num_relations, num_layers, embedding_dim, hidden_dim, cuda=True, print=print):
+	def __init__(self, num_relations, num_layers, embedding_dim, hidden_dim, cuda=True):
 		super(RuleGenerator, self).__init__()
 		self.num_relations = num_relations
 		self.embedding_dim = embedding_dim
@@ -94,14 +94,11 @@ class RuleGenerator(torch.nn.Module):
 		self.padding_idx = self.num_relations + 1
 		self.num_layers = num_layers
 		self.use_cuda = cuda
-		self.print = print
 
 		self.embedding = torch.nn.Embedding(self.vocab_size, self.embedding_dim, padding_idx=self.padding_idx)
 		self.rnn = torch.nn.LSTM(self.embedding_dim * 2, self.hidden_dim, self.num_layers, batch_first=True)
 		self.linear = torch.nn.Linear(self.hidden_dim, self.label_size)
 		self.criterion = torch.nn.CrossEntropyLoss(reduction='none')
-
-		self.print = print
 
 		if cuda:
 			self.cuda()
@@ -219,7 +216,6 @@ class RuleGenerator(torch.nn.Module):
 		return log_prob
 
 	def train_model(self, iterator, num_epoch=10000, lr=1e-3, print_epoch=100):
-		print = self.print
 		opt = torch.optim.Adam(self.parameters(), lr=lr)
 		sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=num_epoch, eta_min=lr/10)
 
@@ -247,12 +243,11 @@ class RuleGenerator(torch.nn.Module):
 
 	def beam_search(self, relation, num_samples, max_len):
 		max_len += 1
-		print = self.print
 		with torch.no_grad():
 			found_rules = []
 			prev_rules = [[[relation], 0]]
 			for k in range(max_len):
-				self.print(f"k = {k} |prev| = {len(prev_rules)}")
+				print(f"k = {k} |prev| = {len(prev_rules)}")
 				current_rules = list()
 				for _i, (rule, score) in enumerate(prev_rules):
 					assert rule[-1] != self.ending_idx
@@ -265,7 +260,7 @@ class RuleGenerator(torch.nn.Module):
 				prev_rules = sorted(current_rules, key=lambda x:x[1], reverse=True)[:num_samples]
 				found_rules = sorted(found_rules, key=lambda x:x[1], reverse=True)[:num_samples]
 
-			self.print(f"beam_search |rules| = {len(found_rules)}")
+			print(f"beam_search |rules| = {len(found_rules)}")
 			ret = [[len(rule) - 2] + rule[0:-1] + [score] for rule, score in found_rules]
 			return ret
 
@@ -277,6 +272,7 @@ class RNNLogic:
 		self.predictor = ReasoningPredictor(graph)
 		self.generator = RuleGenerator(self.num_relations, args.generator_layers, args.generator_embedding_dim, args.generator_hidden_dim, args.cuda)
 
+	# Generate logic rules by sampling.
 	def generate_rules(self):
 		relation2rules = list()
 		for r in range(self.num_relations):
@@ -284,6 +280,7 @@ class RNNLogic:
 			relation2rules.append(rules)
 		return relation2rules
 
+	# Generate optimal logic rules by beam search.
 	def generate_best_rules(self):
 		relation2rules = list()
 		for r in range(self.num_relations):
@@ -291,14 +288,17 @@ class RNNLogic:
 			relation2rules.append(rules)
 		return relation2rules
 
+	# Update the reasoning predictor with generated logic rules.
 	def update_predictor(self, relation2rules):
 		self.predictor.set_logic_rules(relation2rules)
 		self.predictor.train(self.args.predictor_learning_rate, self.args.predictor_weight_decay, self.args.predictor_temperature, self.args.predictor_portion, self.args.num_threads)
 
+	# E-step: Infer the high-quality logic rules.
 	def e_step(self):
 		self.predictor.compute_H_score(self.args.num_important_rules, self.args.predictor_H_temperature, self.args.prior_weight, self.args.predictor_portion, self.args.num_threads)
 		return self.predictor.get_logic_rules()
 
+	# M-step: Update the rule generator with logic rules.
 	def m_step(self, relation2rules, tune=False):
 		dataset = RuleDataset(self.num_relations, relation2rules)
 		dataloader = DataLoader(dataset, batch_size=self.args.generator_batch_size, shuffle=True, num_workers=1, collate_fn=RuleDataset.collate_fn)
@@ -312,13 +312,17 @@ class RNNLogic:
 		all_high_quality_rules = [[] for r in range(self.num_relations)]
 		
 		for iteration in range(self.args.iterations):
+
+			# Generate a set of logic rules and update the reasoning predictor for reasoning.
 			relation2rules = self.generate_rules()
 			self.update_predictor(relation2rules)
 			mr, mrr, hit1, hit3, hit10 = self.predictor.evaluate('valid', self.args.num_threads)
-			print("MR: {}, MRR: {}, Hit@1: {}, Hit@3: {}, Hit@10: {}.".format(mr, mrr, hit1, hit3, hit10))
+			print("Valid | MR: {:.6f}, MRR: {:.6f}, Hit@1: {:.6f}, Hit@3: {:.6f}, Hit@10: {:.6f}.".format(mr, mrr, hit1, hit3, hit10))
 
+			# E-step: Identify a subset of high-quality logic rules based on posterior inference.
 			high_quality_rules = self.e_step()
 
+			# M-step: Improve the rule generator with the high-quality rules from the E-step.
 			self.m_step(high_quality_rules, tune=True)
 
 			for r in range(self.num_relations):
@@ -331,4 +335,4 @@ class RNNLogic:
 		self.predictor.set_logic_rules(relation2rules)
 		self.predictor.train(self.args.predictor_learning_rate, self.args.predictor_weight_decay, self.args.predictor_temperature, self.args.predictor_portion, self.args.num_threads)
 		mr, mrr, hit1, hit3, hit10 = self.predictor.evaluate("test", self.args.num_threads)
-		print("MR: {}, MRR: {}, Hit@1: {}, Hit@3: {}, Hit@10: {}.".format(mr, mrr, hit1, hit3, hit10))
+		print("Test | MR: {:.6f}, MRR: {:.6f}, Hit@1: {:.6f}, Hit@3: {:.6f}, Hit@10: {:.6f}.".format(mr, mrr, hit1, hit3, hit10))
