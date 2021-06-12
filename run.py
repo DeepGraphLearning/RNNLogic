@@ -1,63 +1,80 @@
-import argparse
-import random
-from model import KnowledgeGraph, RuleMiner, RNNLogic
+import sys
+import os
 
-def parse_args(args=None):
-	parser = argparse.ArgumentParser(
-		description='RNNLogic',
-		usage='run.py [<args>] [-h | --help]'
-	)
+import rule_sample
+from knowledge_graph_utils import *
+from model_rnnlogic import RNNLogic
 
-	parser.add_argument('--cuda', action='store_true', help='Use GPU.')
+DATA_DIR             = sys.argv[1]
+OUTPUT_DIR           = sys.argv[2]
+write_log_to_console = True         if len(sys.argv) <= 3 else eval(sys.argv[3])
+start                = 0            if len(sys.argv) <= 4 else int(sys.argv[4])
+hop                  = 0            if len(sys.argv) <= 5 else int(sys.argv[5])
+RotatE               = 'RotatE_500' if len(sys.argv) <= 6 else sys.argv[6]
 
-	parser.add_argument('--data_path', type=str, default=None, help='Set data path.')
+'''
+Example:
 
-	parser.add_argument('--max_rule_length', default=3, type=int, help='Set the maximum length of logic rules.')
-	parser.add_argument('--num_generated_rules', default=200, type=int, help='Set the number of logic rules fed to the reasoning predictor at each training iteration.')
-	parser.add_argument('--num_important_rules', default=10, type=int, help='Set the number of high-quality logic rules selected at each iteration.')
-	parser.add_argument('--num_rules_for_test', default=100, type=int, help='Set the number of logic rules for evaluation.')
-	parser.add_argument('--prior_weight', default=1.0, type=float, help='Set the weight of rule prior when inferring the posterior.')
-	parser.add_argument('--num_threads', default=10, type=int, help='Set the number of threads for training.')
-	parser.add_argument('--iterations', default=10, type=int, help='Set the number of training iterations.')
+DATA_DIR             = "./dataset/kinship_325"
+OUTPUT_DIR           = "./workspace"
+write_log_to_console = True
+start                = 0
+hop                  = 100
+RotatE               = 'RotatE_500'
+'''
 
-	parser.add_argument('--miner_portion', default=1.0, type=float, help='Set the percentage of training triplets used by rule miners.')
+old_print = print
+if not write_log_to_console:
+    log_file = open(f"{OUTPUT_DIR}/train_log.txt", 'a')
+    print = lambda *args, **kwargs: old_print(*args, **kwargs, file=log_file, flush=True)
+else:
+    print = lambda *args, **kwargs: old_print(*args, **kwargs, flush=True)
 
-	parser.add_argument('--predictor_learning_rate', default=0.01, type=float, help='Set the learning rate for reasoning predictors.')
-	parser.add_argument('--predictor_weight_decay', default=0.0005, type=float, help='Set the weight decay for reasoning predictors.')
-	parser.add_argument('--predictor_temperature', default=100, type=float, help='Set the annealing temperature of reasoning predictors for prediction.')
-	parser.add_argument('--predictor_H_temperature', default=1.0, type=float, help='Set the annealing temperature of reasoning predictors when computing the H score of rules.')
-	parser.add_argument('--predictor_portion', default=1.0, type=float, help='Set the percentage of training triplets used by reasoning predictors.')
+# Step 0: Install dependencies
+os.chdir('./cppext')
+os.popen('python setup.py install')
+os.chdir('..')
 
-	parser.add_argument('--generator_embedding_dim', default=512, type=int, help='Set the embedding dimension for rule generators.')
-	parser.add_argument('--generator_hidden_dim', default=256, type=int, help='Set the hidden dimension for rule generators.')
-	parser.add_argument('--generator_layers', default=1, type=int, help='Set the number of layers for rule generators.')
-	parser.add_argument('--generator_batch_size', default=1024, type=int, help='Set the batch size for rule generators.')
-	parser.add_argument('--generator_epochs', default=10000, type=int, help='Set the number of training epochs for rule generators.')
-	parser.add_argument('--generator_learning_rate', default=0.001, type=float, help='Set learning rate for training rule generators.')
-	parser.add_argument('--generator_tune_epochs', default=100, type=int, help='Set the number of tuning epochs for rule generators.')
-	parser.add_argument('--generator_tune_learning_rate', default=0.00001, type=float, help='Set learning rate for tuning rule generators.')
+# Step 1: Load dataset
+dataset = load_dataset(f"{DATA_DIR}")
 
-	return parser.parse_args(args)
+# Step 2: Generate rules
+# Note: This step only needs to do once.
+rule_sample.use_graph(dataset_graph(dataset, 'train'))
+for r in range(start, dataset['R'], hop):
+    # Usage: rule_sample.sample(relation, dict: rule_len -> num_per_sample, num_samples, ...)
+    rules = rule_sample.sample(r, {1: 1, 2: 10, 3: 10, 4: 10}, 1000, num_threads=12, samples_per_print=100)
+    rule_sample.save(rules, f"{DATA_DIR}/Rules/rules_{r}.txt")
 
-def main(args):
-	# Load knowledge graphs.
-	graph = KnowledgeGraph(args.data_path)
 
-	# Mine some relational paths from the knowledge graph.
-	miner = RuleMiner(graph)
-	miner.mine_logic_rules(args.max_rule_length, args.miner_portion, args.num_threads)
+# Step 3: Create RNNLogic Model
+model = RNNLogic(dataset,
+                 {
+                     # See model_rnnlogic.py for default values
+                     'rotate_pretrained': f"{DATA_DIR}/{RotatE}",
+                     'max_rules': 300,
+                     'max_best_rules': 100,
+                     'max_beam_rules': 1000,
+                     'num_em_epoch': 2,
+                     'predictor_batch_size': 4,
+                     'predictor_num_epoch': 1000,
+                     'generator_num_epoch': 500,
+                     'predictor_lr': 1e-3,
+                     'init_weight_with_prior': True,
+                     'init_weight_boot': True,
 
-	# Pre-train the rule generator on the mined relational paths, 
-	# so that the rule generator will not explore useless rules.
-	rnnlogic = RNNLogic(args, graph)
-	rnnlogic.m_step(miner.get_logic_rules())
+                     'max_pgnd_rules': 0,
+                     'use_neg_rules': True,
+                     'disable_selflink': True,
+                     # 'pgnd_weight': 1.0,
+                     # 'rule_value_def': 'pos - score / num * pos_num',
+                 }, print=print)
 
-	rnnlogic.train()
-	rnnlogic.evaluate()
-	
-if __name__ == '__main__':
-	main(parse_args())
+for name, param in model.named_parameters():
+    model.print(f"Model Parameter: {name} ({param.type()}:{param.size()})")
 
-# python run.py --data_path ../data/wn18rr --num_generated_rules 200 --num_rules_for_test 200 --num_important_rules 0 --prior_weight 0.01 --cuda
-# python run.py --data_path ../data/kinship_325 --num_generated_rules 2000 --num_rules_for_test 200 --num_important_rules 0 --prior_weight 0.01 --cuda
-# python run.py --data_path ../data/umls_325 --num_generated_rules 2000 --num_rules_for_test 100 --num_important_rules 0 --prior_weight 0.01 --cuda
+# Step 4: Train and output test results.
+for r in range(start, dataset['R'], hop):
+    model.train_model(r,
+                      rule_file=f"{DATA_DIR}/Rules/rules_{r}.txt",
+                      model_file=f"{OUTPUT_DIR}/model_{r}.pth")
