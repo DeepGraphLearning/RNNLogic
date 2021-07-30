@@ -16,7 +16,7 @@ RotatE               = 'RotatE_500' if len(sys.argv) <= 6 else sys.argv[6]
 Example:
 The script will train a separate model for each relation in range(start, total number of relations, hop).
 
-DATA_DIR             = "../data/kinship_325"
+DATA_DIR             = "../data/kinship"
 OUTPUT_DIR           = "./workspace"
 write_log_to_console = True
 start                = 0
