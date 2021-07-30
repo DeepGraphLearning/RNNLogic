@@ -31,22 +31,28 @@ class KnowledgeGraph:
 			for line in fi:
 				h, r, t = line.strip().split('\t')
 				self.train_triplets.append((self.entity2id[h], self.relation2id[r], self.entity2id[t]))
+				self.train_triplets.append((self.entity2id[t], self.relation2id[r] + len(self.relation2id), self.entity2id[h]))
 
 		with open(os.path.join(data_path, 'valid.txt')) as fi:
 			for line in fi:
 				h, r, t = line.strip().split('\t')
 				self.valid_triplets.append((self.entity2id[h], self.relation2id[r], self.entity2id[t]))
+				self.valid_triplets.append((self.entity2id[t], self.relation2id[r] + len(self.relation2id), self.entity2id[h]))
 
 		with open(os.path.join(data_path, 'test.txt')) as fi:
 			for line in fi:
 				h, r, t = line.strip().split('\t')
 				self.test_triplets.append((self.entity2id[h], self.relation2id[r], self.entity2id[t]))
+				self.test_triplets.append((self.entity2id[t], self.relation2id[r] + len(self.relation2id), self.entity2id[h]))
+
+		self.entity_size = len(self.entity2id)
+		self.relation_size = len(self.relation2id) * 2
 
 	def get_entity_size(self):
-		return len(self.entity2id)
+		return self.entity_size
 
 	def get_relation_size(self):
-		return len(self.relation2id)
+		return self.relation_size
 
 class RuleMiner:
 	def __init__(self, graph):

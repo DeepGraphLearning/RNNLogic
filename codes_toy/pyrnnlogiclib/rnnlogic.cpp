@@ -247,7 +247,13 @@ void KnowledgeGraph::read_data(char *data_path)
         if (ent2id.count(s_head) == 0 || ent2id.count(s_tail) == 0 || rel2id.count(s_rel) == 0) continue;
         
         h = ent2id[s_head]; t = ent2id[s_tail]; r = rel2id[s_rel];
+        
         triplet.h = h; triplet.t = t; triplet.r = r;
+        train_triplets.push_back(triplet);
+        set_train_triplets.insert(triplet);
+        set_all_triplets.insert(triplet);
+        
+        triplet.h = t; triplet.t = h; triplet.r = r + relation_size;
         train_triplets.push_back(triplet);
         set_train_triplets.insert(triplet);
         set_all_triplets.insert(triplet);
@@ -276,7 +282,12 @@ void KnowledgeGraph::read_data(char *data_path)
         if (ent2id.count(s_head) == 0 || ent2id.count(s_tail) == 0 || rel2id.count(s_rel) == 0) continue;
 
         h = ent2id[s_head]; t = ent2id[s_tail]; r = rel2id[s_rel];
+        
         triplet.h = h; triplet.t = t; triplet.r = r;
+        valid_triplets.push_back(triplet);
+        set_all_triplets.insert(triplet);
+        
+        triplet.h = t; triplet.t = h; triplet.r = r + relation_size;
         valid_triplets.push_back(triplet);
         set_all_triplets.insert(triplet);
     }
@@ -297,7 +308,12 @@ void KnowledgeGraph::read_data(char *data_path)
         if (ent2id.count(s_head) == 0 || ent2id.count(s_tail) == 0 || rel2id.count(s_rel) == 0) continue;
 
         h = ent2id[s_head]; t = ent2id[s_tail]; r = rel2id[s_rel];
+        
         triplet.h = h; triplet.t = t; triplet.r = r;
+        test_triplets.push_back(triplet);
+        set_all_triplets.insert(triplet);
+        
+        triplet.h = t; triplet.t = h; triplet.r = r + relation_size;
         test_triplets.push_back(triplet);
         set_all_triplets.insert(triplet);
     }
@@ -305,6 +321,7 @@ void KnowledgeGraph::read_data(char *data_path)
     test_triplet_size = int(test_triplets.size());
 
     all_triplet_size = int(set_all_triplets.size());
+    relation_size *= 2;
     
     printf("#Entities: %d          \n", entity_size);
     printf("#Relations: %d          \n", relation_size);
