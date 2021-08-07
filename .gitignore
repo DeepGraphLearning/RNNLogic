@@ -1,0 +1,15 @@
+output
+__pycache__
+*.zip
+checkpoint
+*.pth
+*.pyd
+*.lib
+*.obj
+*.exp
+*build/
+*.egg
+*.egg-info/
+drugdiscovery
+scratch
+dataset
