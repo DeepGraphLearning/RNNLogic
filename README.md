@@ -4,7 +4,7 @@ This is an implementation of the [RNNLogic](https://arxiv.org/abs/2010.04029) mo
 
 ## Introduction
 
-RNNLogic focuses on knowledge graphs, which are collections of real-world facts, with each fact represented by a (h,r,t)​-triplet. As collecting facts is expensive, knowledge graphs are imcomplete, and thus predicting missing facts in a knowledge graph is an important problem with growing attention. Such a problem is known as **knowledge graph reasoning**.
+RNNLogic focuses on knowledge graphs, which are collections of real-world facts, with each fact represented by a (h,r,t)-triplet. As collecting facts is expensive, knowledge graphs are imcomplete, and thus predicting missing facts in a knowledge graph is an important problem with growing attention. Such a problem is known as **knowledge graph reasoning**.
 
 RNNLogic solves knowledge graph reasoning by learning **logic rules**, which have been proved to improve the *interpretability* and *precision* of reasoning. To do that, RNNLogic employs a **rule generator** and a **reasoning predictor**. The rule generator is parameterized by a RNN, which is able to model and generate chain-like rules. The reasoning predictor follows stochastic logic programming, which uses a set of logic rules as input to predict the answers of queries. Given a query, the rule generator generates a set of logic rules, which are fed into the reasoning predictor. The rule generator further applies the logic rules to the existing knowledge graph for predicting the answer.
 
@@ -48,7 +48,7 @@ python run.py --data_path ../data/umls --num_generated_rules 2000 --num_rules_fo
 
 In the folder *codes*, we provide the full implementation of both *RNNLogic w/o emb* and *RNNLogic with emb*. The codes can be used to reproduce the results of *RNNLogic with emb* reported in the paper. Note that in order to speed up training, this implementation trains a separate model for each relation, which allows us to deal with all the relations in parallel.
 
-To run this code, please edit the script *codes/run.py* and use this script for model training.
+To run this code, you first need to download the pretrained entity and relation embeddings. You could do that through the [link](https://drive.google.com/file/d/1vzfY6v79GTCdedVyo1AO31lzsmZaiEQE/view?usp=sharing). Afterwards, please put the folder *FB15k-237/RotatE_500* in *data/FB15k-237* and put the folder *wn18rr/RotatE_200* in *data/wn18rr*. Finally, please edit the script *codes/run.py* and use this script for model training.
 
 ## Citation
 Please consider citing the following paper if you find our codes helpful. Thank you!
