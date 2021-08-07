@@ -1,16 +1,41 @@
 import sys
 import os
 
+from merge_results import calc_result
 import rule_sample
 from knowledge_graph_utils import *
 from model_rnnlogic import RNNLogic
+
 
 DATA_DIR             = sys.argv[1]
 OUTPUT_DIR           = sys.argv[2]
 write_log_to_console = True         if len(sys.argv) <= 3 else eval(sys.argv[3])
 start                = 0            if len(sys.argv) <= 4 else int(sys.argv[4])
-hop                  = 0            if len(sys.argv) <= 5 else int(sys.argv[5])
+hop                  = 1            if len(sys.argv) <= 5 else int(sys.argv[5])
 RotatE               = 'RotatE_500' if len(sys.argv) <= 6 else sys.argv[6]
+hyperparams          =  {
+    # See model_rnnlogic.py for default values
+    'rotate_pretrained': f"{DATA_DIR}/{RotatE}",
+    'max_rules': 300,
+    'max_best_rules': 100,
+    'max_beam_rules': 1000,
+    'num_em_epoch': 2,
+    'predictor_batch_size': 4,
+    'predictor_num_epoch': 1000,
+    'generator_num_epoch': 500,
+    'predictor_lr': 1e-3,
+    'init_weight_with_prior': True,
+    'init_weight_boot': True,
+
+    'max_pgnd_rules': 0,
+    'use_neg_rules': True,
+    'disable_selflink': True,
+    # 'pgnd_weight': 1.0,
+    # 'rule_value_def': 'pos - score / num * pos_num',
+}
+if len(sys.argv) > 7:
+    hyperparams = dict(sys.argv[7])
+
 
 '''
 Example:
@@ -25,11 +50,15 @@ RotatE               = 'RotatE_500'
 '''
 
 old_print = print
-if not write_log_to_console:
-    log_file = open(f"{OUTPUT_DIR}/train_log.txt", 'a')
-    print = lambda *args, **kwargs: old_print(*args, **kwargs, file=log_file, flush=True)
-else:
-    print = lambda *args, **kwargs: old_print(*args, **kwargs, flush=True)
+log_filename = f"{OUTPUT_DIR}/train_log.txt"
+log_file = open(log_filename, 'a')
+
+def new_print(*args, **kwargs):
+    if write_log_to_console:
+        old_print(*args, **kwargs, flush=True)
+    old_print(*args, **kwargs, file=log_file, flush=True)
+
+print = new_print
 
 # Step 0: Install dependencies
 os.chdir('./cppext')
@@ -79,3 +108,7 @@ for r in range(start, dataset['R'], hop):
     model.train_model(r,
                       rule_file=f"{DATA_DIR}/Rules/rules_{r}.txt",
                       model_file=f"{OUTPUT_DIR}/model_{r}.pth")
+
+# Step 5: Merge results, if (start, hop) == (0, 1)
+if (start, hop) == (0, 1):
+    calc_result(log_filename)
