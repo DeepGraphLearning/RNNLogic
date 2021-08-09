@@ -82,22 +82,7 @@ model = RNNLogic(dataset,
                  {
                      # See model_rnnlogic.py for default values
                      'rotate_pretrained': f"{DATA_DIR}/{RotatE}",
-                     'max_rules': 300,
-                     'max_best_rules': 100,
-                     'max_beam_rules': 1000,
-                     'num_em_epoch': 2,
-                     'predictor_batch_size': 4,
-                     'predictor_num_epoch': 1000,
-                     'generator_num_epoch': 500,
-                     'predictor_lr': 1e-3,
-                     'init_weight_with_prior': True,
-                     'init_weight_boot': True,
-
-                     'max_pgnd_rules': 0,
-                     'use_neg_rules': True,
-                     'disable_selflink': True,
-                     # 'pgnd_weight': 1.0,
-                     # 'rule_value_def': 'pos - score / num * pos_num',
+              
                  }, print=print)
 
 for name, param in model.named_parameters():
