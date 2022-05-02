@@ -2,6 +2,8 @@
 
 This is an implementation of the [RNNLogic](https://arxiv.org/abs/2010.04029) model for knowledge graph reasoning. 
 
+**Update: We have refactored the codes to make them more readable. The latest codes are available at the folder `RNNLogic+`. See `RNNLogic+/README.md` for more details.**
+
 ## Introduction
 
 RNNLogic focuses on knowledge graphs, which are collections of real-world facts, with each fact represented by a (h,r,t)-triplet. As collecting facts is expensive, knowledge graphs are imcomplete, and thus predicting missing facts in a knowledge graph is an important problem with growing attention. Such a problem is known as **knowledge graph reasoning**.
@@ -29,7 +31,13 @@ We provide four datasets for knowledge graph reasoning, and these datasets are F
 
 We provide two versions of RNNLogic implemetations.
 
-### Version 1
+### Latest Version
+
+In the folder **RNNLogic+**, we provide the latest codes, which correspond to the model RNNLogic+ in the paper.
+
+Please refer to `RNNLogic+/README.md` for more details.
+
+### Version 2
 
 In the folder **codes_toy**, we provide a toy implementation, which only implements the model *RNNLogic w/o emb*. This toy implementation is easy to understand, which can be used to reproduce the results of *RNNLogic w/o emb* reported in the paper.
 
@@ -44,7 +52,7 @@ python run.py --data_path ../data/kinship --num_generated_rules 2000 --num_rules
 python run.py --data_path ../data/umls --num_generated_rules 2000 --num_rules_for_test 100 --num_important_rules 0 --prior_weight 0.01 --cuda
 ```
 
-### Version 2
+### Version 3
 
 In the folder *codes*, we provide the full implementation of both *RNNLogic w/o emb* and *RNNLogic with emb*. The codes can be used to reproduce the results of *RNNLogic with emb* reported in the paper. Note that in order to speed up training, this implementation trains a separate model for each relation, which allows us to deal with all the relations in parallel.
 
