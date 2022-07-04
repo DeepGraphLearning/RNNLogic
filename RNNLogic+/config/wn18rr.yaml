@@ -8,7 +8,7 @@ data:
   batch_size: 32
 
 EM:
-  num_iters: 0
+  num_iters: 5
   prior_weight: 0.001
   num_rules: 100
   max_length: 3
@@ -60,7 +60,7 @@ predictorplus:
   gpus: [0, 1, 2, 3]
   model:
     hidden_dim: 16
-    embedding_path: /home/qumeng/research/rnnlogic/data/wn18rr/RotatE_200
+    embedding_path: ../data/wn18rr/RotatE_200
   optimizer:
     lr: 0.005
     weight_decay: 0

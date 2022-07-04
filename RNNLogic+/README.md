@@ -6,6 +6,10 @@ The idea of RNNLogic+ is to first learn useful logic rules by running *RNNLogic 
 
 To run RNNLogic+, you might follow the following steps.
 
+**Update:**
+
+We just added RNNLogic+ with embedding. To run the codes, please first download pre-trained RotatE embeddings at [this link](https://drive.google.com/file/d/1FTS8zLTrJ0h5b7Wt4C7s3dMVFzmQLa9u/view?usp=sharing). Then you can unzip the file and put them into the corresponding dataset folders. Finally, please specify the embedding path at **predictorplus.model.embedding_path** in the config file.
+
 ## Step 1: Mine logic rules
 
 In the first step, we mine some low-quality logic rules, which are used to pre-train the rule generator in RNNLogic+ to speed up training.
@@ -20,8 +24,6 @@ Afterwards, run the following command to mine logic rules:
 
 The codes run on CPUs. Thus it is better to use a server with many CPUs and use more threads by adjusing the option `-thread`. The program will output a file called `mined_rules.txt`, and you can move the file to your dataset folder.
 
-**In `data/FB15k-237` and `data/wn18rr`, we have provided these mined rules, so you can skip this step.**
-
 ## Step 2: Run RNNLogic+
 
 Next, we are ready to run RNNLogic. To do that, please first edit the config file in the folder `config`, and then go to folder `src`.
@@ -29,11 +31,13 @@ Next, we are ready to run RNNLogic. To do that, please first edit the config fil
 If you would like to use single-GPU training, please edit line 39 and line 60, and further run:
 
 `python run_rnnlogic.py --config ../config/FB15k-237.yaml` 
+
 `python run_rnnlogic.py --config ../config/wn18rr.yaml` 
 
 If you would like to use multi-GPU training, please run:
 
 `python -m torch.distributed.launch --nproc_per_node=4 run_rnnlogic.py --config ../config/FB15k-237.yaml`
+
 `python -m torch.distributed.launch --nproc_per_node=4 run_rnnlogic.py --config ../config/wn18rr.yaml`
 
 ## Results and Discussion
