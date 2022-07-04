@@ -171,6 +171,9 @@ class TrainerPredictor(object):
                 flag = flag.cuda(device=self.device)
 
             logits, mask = model(all_h, all_r, None)
+            if model.embedding_path != None:
+                bias = model.RotatE(all_h, all_r)
+                logits = logits + bias
 
             concat_logits.append(logits)
             concat_all_h.append(all_h)

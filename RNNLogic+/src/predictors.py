@@ -119,7 +119,7 @@ class Predictor(torch.nn.Module):
         return rule_H_score, rule_index
 
 class PredictorPlus(torch.nn.Module):
-    def __init__(self, graph, hidden_dim=16):
+    def __init__(self, graph, hidden_dim=16, embedding_path=None):
         super(PredictorPlus, self).__init__()
         self.graph = graph
 
@@ -129,12 +129,16 @@ class PredictorPlus(torch.nn.Module):
         self.num_relations = graph.relation_size
         self.padding_index = graph.relation_size
 
-        self.rule_to_entity = FuncToNodeSum(self.hidden_dim)
+        self.rule_to_entity = FuncToNode(self.hidden_dim)
 
         self.relation_emb = torch.nn.Embedding(self.num_relations, self.hidden_dim)
         self.score_model = MLP(self.hidden_dim * 2, [128, 1]) # 128 for FB15k
 
         self.bias = torch.nn.parameter.Parameter(torch.zeros(self.num_entities))
+        
+        self.embedding_path = embedding_path
+        if embedding_path != None:
+            self.RotatE = RotatE(embedding_path)
 
     def set_rules(self, input):
         self.rules = list()
