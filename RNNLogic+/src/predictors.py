@@ -119,22 +119,48 @@ class Predictor(torch.nn.Module):
         return rule_H_score, rule_index
 
 class PredictorPlus(torch.nn.Module):
-    def __init__(self, graph, hidden_dim=16):
+    def __init__(self, graph, type='emb', num_layers=3, hidden_dim=16, entity_feature='bias', aggregator='sum', embedding_path=None):
         super(PredictorPlus, self).__init__()
         self.graph = graph
 
+        self.type = type
+        self.num_layers = num_layers
         self.hidden_dim = hidden_dim
+        self.entity_feature = entity_feature
+        self.aggregator = aggregator
+        self.embedding_path = embedding_path
 
         self.num_entities = graph.entity_size
         self.num_relations = graph.relation_size
         self.padding_index = graph.relation_size
 
-        self.rule_to_entity = FuncToNodeSum(self.hidden_dim)
+        self.vocab_emb = torch.nn.Embedding(self.num_relations + 1, self.hidden_dim, padding_idx=self.num_relations)
+        
+        if self.type == 'lstm':
+            self.rnn = torch.nn.LSTM(self.hidden_dim, self.hidden_dim, self.num_layers, batch_first=True)
+        elif self.type == 'gru':
+            self.rnn = torch.nn.GRU(self.hidden_dim, self.hidden_dim, self.num_layers, batch_first=True)
+        elif self.type == 'rnn':
+            self.rnn = torch.nn.RNN(self.hidden_dim, self.hidden_dim, self.num_layers, batch_first=True)
+        elif self.type == 'emb':
+            self.rule_emb = None
+        else:
+            raise NotImplementedError
+
+        if aggregator == 'sum':
+            self.rule_to_entity = FuncToNodeSum(self.hidden_dim)
+        elif aggregator == 'pna':
+            self.rule_to_entity = FuncToNode(self.hidden_dim)
+        else:
+            raise NotImplementedError
 
         self.relation_emb = torch.nn.Embedding(self.num_relations, self.hidden_dim)
         self.score_model = MLP(self.hidden_dim * 2, [128, 1]) # 128 for FB15k
 
-        self.bias = torch.nn.parameter.Parameter(torch.zeros(self.num_entities))
+        if entity_feature == 'bias':
+            self.bias = torch.nn.parameter.Parameter(torch.zeros(self.num_entities))
+        elif entity_feature == 'RotatE':
+            self.RotatE = RotatE(embedding_path)
 
     def set_rules(self, input):
         self.rules = list()
@@ -168,8 +194,18 @@ class PredictorPlus(torch.nn.Module):
             self.rule_features.append(rule_)
         self.rule_features = torch.tensor(self.rule_features, dtype=torch.long)
 
-        self.rule_emb = nn.parameter.Parameter(torch.zeros(self.num_rules, self.hidden_dim))
-        nn.init.kaiming_uniform_(self.rule_emb, a=math.sqrt(5), mode="fan_in")
+        if self.type == 'emb':
+            self.rule_emb = nn.parameter.Parameter(torch.zeros(self.num_rules, self.hidden_dim))
+            nn.init.kaiming_uniform_(self.rule_emb, a=math.sqrt(5), mode="fan_in")
+
+    def encode_rules(self, rule_features):
+        rule_masks = rule_features != self.num_relations
+        x = self.vocab_emb(rule_features)
+        output, hidden = self.rnn(x)
+        idx = (rule_masks.sum(-1) - 1).long()
+        idx = idx.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, self.hidden_dim)
+        rule_emb = torch.gather(output, 1, idx).squeeze(1)
+        return rule_emb
     
     def forward(self, all_h, all_r, edges_to_remove):
         query_r = all_r[0].item()
@@ -192,7 +228,13 @@ class PredictorPlus(torch.nn.Module):
             rule_count.append(count)
 
         if mask.sum().item() == 0:
-            return mask + self.bias.unsqueeze(0), (1 - mask).bool()
+            if self.entity_feature == 'bias':
+                return mask + self.bias.unsqueeze(0), (1 - mask).bool()
+            elif self.entity_feature == 'RotatE':
+                bias = self.RotatE(all_h, all_r)
+                return mask + bias, (1 - mask).bool()
+            else:
+                return mask - float('-inf'), mask.bool()
 
         candidate_set = torch.nonzero(mask.view(-1), as_tuple=True)[0]
         batch_id_of_candidate = candidate_set // self.graph.entity_size
@@ -201,7 +243,11 @@ class PredictorPlus(torch.nn.Module):
         rule_count = torch.stack(rule_count, dim=0)
         rule_count = rule_count.reshape(rule_index.size(0), -1)[:, candidate_set]
         
-        rule_emb = self.rule_emb[rule_index]
+        if self.type == 'emb':
+            rule_emb = self.rule_emb[rule_index]
+        else:
+            rule_emb = self.encode_rules(self.rule_features[rule_index])
+
         output = self.rule_to_entity(rule_count, rule_emb, batch_id_of_candidate)
         
         rel = self.relation_emb(all_r[0]).unsqueeze(0).expand(output.size(0), -1)
@@ -211,7 +257,15 @@ class PredictorPlus(torch.nn.Module):
         score = torch.zeros(all_h.size(0) * self.graph.entity_size, device=device)
         score.scatter_(0, candidate_set, output)
         score = score.view(all_h.size(0), self.graph.entity_size)
-        score = score + self.bias.unsqueeze(0)
-        mask = torch.ones_like(mask).bool()
+        if self.entity_feature == 'bias':
+            score = score + self.bias.unsqueeze(0)
+            mask = torch.ones_like(mask).bool()
+        elif self.entity_feature == 'RotatE':
+            bias = self.RotatE(all_h, all_r)
+            score = score + bias
+            mask = torch.ones_like(mask).bool()
+        else:
+            mask = (mask != 0)
+            score = score.masked_fill(~mask, float('-inf'))
 
         return score, mask

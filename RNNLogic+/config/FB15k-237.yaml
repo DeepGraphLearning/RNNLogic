@@ -53,8 +53,8 @@ predictor:
 
 final_prediction:
   num_iters: 5
-  num_rules: 100
-  max_length: 3
+  num_rules: [100]
+  max_length: [3]
 
 predictorplus:
   gpus: [0, 1, 2, 3]

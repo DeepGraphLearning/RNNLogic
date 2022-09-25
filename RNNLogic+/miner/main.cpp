@@ -89,10 +89,3 @@ int main(int argc, char **argv)
     train();
     return 0;
 }
-
-// g++ -O3 rnnlogic.h rnnlogic.cpp main.cpp -o rnnlogic -lpthread
-// ./rnnlogic -data-path ../data/kinship_325 -max-length 3 -threads 10 -lr 0.01 -wd 0.0005 -temp 100 -iterations 10 -top-n 2000 -top-k 0 -top-n-test 100
-// ./rnnlogic -data-path ../data/umls_325 -max-length 3 -threads 10 -lr 0.01 -wd 0.0005 -temp 100 -iterations 10 -top-n 2000 -top-k 0 -top-n-test 100
-// ./rnnlogic -data-path ../data/wn18rr -max-length 3 -threads 10 -lr 0.01 -wd 0.0005 -temp 100 -iterations 10 -top-n 200 -top-k 0 -top-n-test 100
-
-//./rnnlogic -data-path ../../data/FB15k-237 -max-length 3 -threads 10 -lr 0.01 -wd 0.0005 -temp 100 -iterations 1 -top-n 2000000000 -top-k 0 -top-n-test 3000

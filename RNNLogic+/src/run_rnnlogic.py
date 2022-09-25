@@ -103,7 +103,11 @@ def main(args):
         logging.info('| Beam Search Best Rules')
         logging.info('-------------------------')
     
-    sampled_rules = solver_g.beam_search(cfg.final_prediction.num_rules, cfg.final_prediction.max_length)
+    sampled_rules = list()
+    for num_rules, max_length in zip(cfg.final_prediction.num_rules, cfg.final_prediction.max_length):
+        sampled_rules_ = solver_g.beam_search(num_rules, max_length)
+        sampled_rules += sampled_rules_
+        
     prior = [rule[-1] for rule in sampled_rules]
     rules = [rule[0:-1] for rule in sampled_rules]
 

@@ -1,0 +1,29 @@
+gpus: [0, 1, 2, 3]
+save_path: saved_wn18rr
+load_path: null
+seed: 1
+num_iters: 10
+
+data:
+  data_path: ../data/wn18rr
+  rule_file: ../data/wn18rr/rnnlogic_rules.txt
+  batch_size: 32
+
+predictor:
+  model:
+    type: emb
+    num_layers: 3
+    hidden_dim: 16
+    entity_feature: bias
+    aggregator: pna
+    embedding_path: null
+  optimizer:
+    lr: 0.005
+    weight_decay: 0
+  train:
+    smoothing: 0.2
+    batch_per_epoch: 1000000
+    print_every: 1000
+  eval:
+    expectation: True
+    

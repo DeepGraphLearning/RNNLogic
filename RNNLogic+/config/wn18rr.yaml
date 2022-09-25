@@ -53,13 +53,14 @@ predictor:
 
 final_prediction:
   num_iters: 5
-  num_rules: 200
-  max_length: 3
+  num_rules: [100, 100, 500, 200, 100]
+  max_length: [1, 2, 3, 4, 5]
 
 predictorplus:
   gpus: [0, 1, 2, 3]
   model:
     hidden_dim: 16
+    aggregator: pna
   optimizer:
     lr: 0.005
     weight_decay: 0
