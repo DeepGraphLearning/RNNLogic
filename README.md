@@ -1,8 +1,6 @@
 # RNNLogic
 
-This is an implementation of the [RNNLogic](https://arxiv.org/abs/2010.04029) model for knowledge graph reasoning. 
-
-**Update: We have refactored the codes to make them more readable. The latest codes are available at the folder `RNNLogic+`. See `RNNLogic+/README.md` for more details.**
+This is an implementation of the [RNNLogic](https://arxiv.org/abs/2010.04029) model for knowledge graph reasoning.
 
 ## Introduction
 
@@ -25,40 +23,67 @@ Finally in the M-step, the rule generator is updated to be consistent with the h
 <img src="./figures/m-step.png" alt="m-step" img width="50%" />
 
 ## Data
-We provide four datasets for knowledge graph reasoning, and these datasets are FB15k-237, WN18RR, Kinship, UMLS. For FB15k-237 and WN18RR, there are standard splits for the training/validation/test sets. For Kinship and UMLS, we split the training/validation/test sets by ourselves, and the details are available in our paper.
+We provide four datasets for knowledge graph reasoning, and these datasets are FB15k-237, WN18RR. For FB15k-237 and WN18RR, there are standard splits for the training/validation/test sets.
 
 ## Usage
 
-We provide two versions of RNNLogic implemetations.
+We provide a few options to run the codes:
 
-### Latest Version
+### 1. Joint Training of Predictors and Generators
 
-In the folder **RNNLogic+**, we provide the latest codes, which correspond to the model RNNLogic+ in the paper.
+In the first option, we jointly train the predictor and the generator, and you might follow the following steps
 
-Please refer to `RNNLogic+/README.md` for more details.
+* **Step 1: Mine logic rules**
 
-### Version 2
+In the first step, we mine some low-quality logic rules, which are used to pre-train the rule generator in RNNLogic to speed up training.
 
-In the folder **codes_toy**, we provide a toy implementation, which only implements the model *RNNLogic w/o emb*. This toy implementation is easy to understand, which can be used to reproduce the results of *RNNLogic w/o emb* reported in the paper.
+To do that, go to the folder `miner`, and compile the codes by running the following command:
 
-To run this code, please first go to the directory *codes_toy/pyrnnlogiclib* and run the following command:
 ```
-python setup.py install
-```
-After that, you can go back to the main directory and use the following commands to do knowledge graph reasoning:
-```
-python run.py --data_path ../data/wn18rr --num_generated_rules 200 --num_rules_for_test 200 --num_important_rules 0 --prior_weight 0.01 --cuda
-python run.py --data_path ../data/kinship --num_generated_rules 2000 --num_rules_for_test 200 --num_important_rules 0 --prior_weight 0.01 --cuda
-python run.py --data_path ../data/umls --num_generated_rules 2000 --num_rules_for_test 100 --num_important_rules 0 --prior_weight 0.01 --cuda
+g++ -O3 rnnlogic.h rnnlogic.cpp main.cpp -o rnnlogic -lpthread
 ```
 
-### Version 3
+Afterwards, run the following command to mine logic rules:
 
-In the folder *codes*, we provide the full implementation of both *RNNLogic w/o emb* and *RNNLogic with emb*. The codes can be used to reproduce the results of *RNNLogic with emb* reported in the paper. Note that in order to speed up training, this implementation trains a separate model for each relation, which allows us to deal with all the relations in parallel.
+```
+./rnnlogic -data-path ../data/FB15k-237 -max-length 3 -threads 40 -lr 0.01 -wd 0.0005 -temp 100 -iterations 1 -top-n 0 -top-k 0 -top-n-out 0 -output-file mined_rules.txt
+```
 
-To run this code, you first need to download the pretrained entity and relation embeddings. You could do that through the [link](https://drive.google.com/file/d/1vzfY6v79GTCdedVyo1AO31lzsmZaiEQE/view?usp=sharing). Afterwards, please put the folder *FB15k-237/RotatE_500* in *data/FB15k-237* and put the folder *wn18rr/RotatE_200* in *data/wn18rr*. Finally, please edit the script *codes/run.py* and use this script for model training.
+The codes run on CPUs. Thus it is better to use a server with many CPUs and use more threads by adjusing the option `-thread`. The program will output a file called `mined_rules.txt`, and you can move the file to your dataset folder.
+
+* **Step 2: Run RNNLogic+**
+
+Next, we are ready to run RNNLogic. To do that, please first edit the config file in the folder `config`, and then go to folder `src`.
+
+If you would like to use single-GPU training, please edit line 39 and line 60, and further run:
+
+```
+python run_rnnlogic.py --config ../config/FB15k-237.yaml
+python run_rnnlogic.py --config ../config/wn18rr.yaml
+```
+
+If you would like to use multi-GPU training, please run:
+
+```
+python -m torch.distributed.launch --nproc_per_node=4 run_rnnlogic.py --config ../config/FB15k-237.yaml
+python -m torch.distributed.launch --nproc_per_node=4 run_rnnlogic.py --config ../config/wn18rr.yaml
+```
+
+**Note** that if you would like to use RotatE embeddings to boost the link prediction results, as what RNNLogic with embedding does, you might add an argument  `entity_feature: <RotatE path>` at the line 60 of the above config files, where `<RotatE path>` is the output path of the RotatE model trained with [this repo](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding).
+
+### 2. Training of Predictors
+
+In the above config files, we only run RNNLogic for 10 EM iterations for illustration. In order to get better performance, it is necessary to run the model for more iterations, but this can be slow. Thus, in the second option, we provide the logic rules learned by RNNLogic in `data/FB15k-237/rnnlogic_rules.txt` and `data/wn18rr/rnnlogic_rules.txt`, and we can directly use these logic rules to train a good predictor for knowledge graph reasoning on FB15k-237 and wn18rr.
+
+To do that, go to the folder `src`, and then you might run:
+
+```
+python -m torch.distributed.launch --nproc_per_node=4 run_predictorplus.py --config ../config/FB15k-237_predictorplus.yaml
+python -m torch.distributed.launch --nproc_per_node=4 run_predictorplus.py --config ../config/wn18rr_predictorplus.yaml
+```
 
 ## Citation
+
 Please consider citing the following paper if you find our codes helpful. Thank you!
 ```
 @inproceedings{qu2020rnnlogic,
