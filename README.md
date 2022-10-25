@@ -8,19 +8,19 @@ RNNLogic focuses on knowledge graphs, which are collections of real-world facts,
 
 RNNLogic solves knowledge graph reasoning by learning **logic rules**, which have been proved to improve the *interpretability* and *precision* of reasoning. To do that, RNNLogic employs a **rule generator** and a **reasoning predictor**. The rule generator is parameterized by a RNN, which is able to model and generate chain-like rules. The reasoning predictor follows stochastic logic programming, which uses a set of logic rules as input to predict the answers of queries. Given a query, the rule generator generates a set of logic rules, which are fed into the reasoning predictor. The rule generator further applies the logic rules to the existing knowledge graph for predicting the answer.
 
-<img src="./figures/workflow.png" alt="workflow" img width="50%" />
+<img src="figures/workflow.png" alt="workflow" img width="50%" />
 
 To optimize the reasoning predictor and the rule generator, we propose an **EM-based algorithm**. At each iteration, the algorithm starts with generating a set of logic rules, which are fed into the reasoning predictor and we further update the reasoning predictor based on the training queries and answers.
 
-<img src="./figures/pre-step.png" alt="pre-step" img width="50%" />
+<img src="figures/pre-step.png" alt="pre-step" img width="50%" />
 
 Then in the E-step, a set of high-quality logic rules are selected from all the generated logic rules according to their posterior probabilities.
 
-<img src="./figures/e-step.png" alt="e-step" img width="50%" />
+<img src="figures/e-step.png" alt="e-step" img width="50%" />
 
 Finally in the M-step, the rule generator is updated to be consistent with the high-logic logic rules identified in the E-step.
 
-<img src="./figures/m-step.png" alt="m-step" img width="50%" />
+<img src="figures/m-step.png" alt="m-step" img width="50%" />
 
 ## Data
 We provide four datasets for knowledge graph reasoning, and these datasets are FB15k-237, WN18RR. For FB15k-237 and WN18RR, there are standard splits for the training/validation/test sets.
